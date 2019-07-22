@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\UsersEditRequest;
 use App\Http\Requests\UsersRequest;
 use App\Photo;
 use App\Role;
@@ -43,8 +44,14 @@ class AdminUsersController extends Controller
      */
     public function store(UsersRequest $request)
     {
-        $input = $request->all();
-//        return redirect()->action('AdminUsersController@index');
+//        condition if password is not filled in, ignore empty password input
+        if(trim($request->password) == ''){
+            $input = $request->except('password');
+        } else{
+            $input = $request->all();
+            //        IMPORTANT! ensure password is encrypted
+            $input['password'] = bcrypt($request->password);
+        }
 
 //      if photo available, input photo_id column, and store photo in public/images dir
         if($file = $request->file('photo_id')){
@@ -53,11 +60,9 @@ class AdminUsersController extends Controller
             $photo = Photo::create(['file'=>$name]);
             $input['photo_id'] = $photo->id;
         }
-        else{
-        }
-//        IMPORTANT! ensure password is encrypted
-        $input['password'] = bcrypt($request->password);
+
         User::create($input);
+        return redirect('/admin/users');
     }
 
     /**
@@ -80,8 +85,9 @@ class AdminUsersController extends Controller
      */
     public function edit($id)
     {
-        //
-        return view('admin.users.edit');
+        $user = User::findOrFail($id);
+        $roles = Role::lists('name', 'id')->all();
+        return view('admin.users.edit', compact('user', 'roles'));
     }
 
     /**
@@ -91,10 +97,28 @@ class AdminUsersController extends Controller
      * @param  int  $id
      * @return \Illuminate\Http\Response
      */
-    public function update(Request $request, $id)
+    public function update(UsersEditRequest $request, $id)
     {
-        //
-        return view('admin.users.update');
+
+        $user = User::findOrFail($id);
+        //        condition if password is not filled in, ignore empty password input
+        if(trim($request->password) == ''){
+            $input = $request->except('password');
+        } else{
+            $input = $request->all();
+            //        IMPORTANT! ensure password is encrypted
+            $input['password'] = bcrypt($request->password);
+        }
+
+//        if photo file uploaded
+        if($file = $request->file('photo_id')){
+            $name = time() . $file->getClientOriginalName();
+            $file->move(public_path().'/images', $name);
+            $photo = Photo::create(['file'=>'name']);
+            $input['photo_id'] = $photo->id;
+        }
+        $user->update($input);
+        return redirect('/admin/users');
     }
 
     /**
